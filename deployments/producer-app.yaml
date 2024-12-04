@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer-app
+  namespace: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: producer
+  template:
+    metadata:
+      labels:
+        app: producer
+    spec:
+      containers:
+      - name: producer
+        image: python:3.9-slim
+        command: ["python", "-u", "/app/producer.py"]
+        volumeMounts:
+        - name: app-volume
+          mountPath: /app
+        env:
+        - name: RABBITMQ_HOST
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: host
+        - name: RABBITMQ_QUEUE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: queueName
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: username
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: password
+      volumes:
+      - name: app-volume
+        configMap:
+          name: producer-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: producer-config
+  namespace: rabbitmq
+data:
+  producer.py: |
+    import subprocess
+    import sys
+    import time
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pika"])
+
+    import pika, os
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(
+            host=os.environ['RABBITMQ_HOST'],
+            port=int(os.environ['RABBITMQ_PORT']),
+            credentials=pika.PlainCredentials(
+                username=os.environ['RABBITMQ_USER'],
+                password=os.environ['RABBITMQ_PASSWORD']
+            )
+        )
+    )
+    channel = connection.channel()
+    channel.queue_declare(queue='test_queue')
+    i=0
+    while True:
+        time.sleep(1)
+        message = f"Message {i}"
+        channel.basic_publish(exchange='', routing_key='test_queue', body=message)
+        print(f"Sent: {message}")
+        i+=1
+    connection.close()
