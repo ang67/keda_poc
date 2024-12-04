@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer-app
+  namespace: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consumer
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      containers:
+      - name: consumer
+        image: python:3.9-slim
+        command: ["python", "-u", "/app/consumer.py"]
+        volumeMounts:
+        - name: app-volume
+          mountPath: /app
+        env:
+        - name: RABBITMQ_HOST
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: host
+        - name: RABBITMQ_QUEUE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: queueName
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: username
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: password
+      volumes:
+      - name: app-volume
+        configMap:
+          name: consumer-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: consumer-config
+  namespace: rabbitmq
+data:
+  consumer.py: |
+    import subprocess
+    import sys
+    import time
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pika"])
+    import pika, os
+    def callback(ch, method, properties, body):
+        print(f"Received: {body}")
+        time.sleep(4)
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(
+            host=os.environ['RABBITMQ_HOST'],
+            port=int(os.environ['RABBITMQ_PORT']),
+            credentials=pika.PlainCredentials(
+                username=os.environ['RABBITMQ_USER'],
+                password=os.environ['RABBITMQ_PASSWORD']
+            )
+        )
+    )
+    channel = connection.channel()
+    channel.queue_declare(queue='test_queue')
+    channel.basic_consume(queue='test_queue', on_message_callback=callback, auto_ack=True)
+    print("Waiting for messages...")
+    channel.start_consuming()
