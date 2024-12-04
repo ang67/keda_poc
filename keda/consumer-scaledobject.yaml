@@ -6,18 +6,18 @@ metadata:
 spec:
   scaleTargetRef:
     name: consumer-app  # Name of the consumer Deployment
-  pollingInterval: 10  # Poll every 10 seconds
-  cooldownPeriod: 30   # Wait for 30 seconds before scaling down
-  minReplicaCount: 1
-  maxReplicaCount: 10
+  pollingInterval: 2  # Poll every 10 seconds
+  # cooldownPeriod: 30   # Wait for 30 seconds before scaling down
+  minReplicaCount: 0
+  maxReplicaCount: 400
   fallback:                                          # Optional. Section to specify fallback options
     failureThreshold: 3                              # Mandatory if fallback section is included
     replicas: 6   
   triggers:
     - type: rabbitmq
       metadata:
-        host: amqp://user:password@rabbitmq.rabbitmq.svc.cluster.local:5672
+        # host: amqp://user:password@rabbitmq.rabbitmq.svc.cluster.local:5672
         queueName: test_queue
-        queueLength: "5"  # Scale when queue length exceeds 5
+        queueLength: "50"  # Scale when queue length exceeds 5
       authenticationRef:
         name: rabbitmq-trigger-auth

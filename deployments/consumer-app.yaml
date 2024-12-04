@@ -59,22 +59,53 @@ data:
     import sys
     import time
     subprocess.check_call([sys.executable, "-m", "pip", "install", "pika"])
-    import pika, os
+    import pika, os, signal
+
+    # Graceful shutdown
+    def stop_consuming(signal, frame):
+        print("Stopping consumer...")
+        channel.stop_consuming()
+        connection.close()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, stop_consuming)
+    signal.signal(signal.SIGTERM, stop_consuming)
+
+    # Environment variables
+    RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'localhost')
+    RABBITMQ_PORT = int(os.getenv('RABBITMQ_PORT', 5672))
+    RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'guest')
+    RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'guest')
+    QUEUE_NAME = os.getenv('RABBITMQ_QUEUE_NAME', 'test_queue')
+
+    # Callback function
     def callback(ch, method, properties, body):
-        print(f"Received: {body}")
-        time.sleep(4)
+        try:
+            print(f"Consumer {os.getpid()} received: {body.decode()}")
+            time.sleep(1)  # Simulating work
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+        except Exception as e:
+            print(f"Processing failed: {e}")
+            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+
+    # Connection
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(
-            host=os.environ['RABBITMQ_HOST'],
-            port=int(os.environ['RABBITMQ_PORT']),
+            host=RABBITMQ_HOST,
+            port=RABBITMQ_PORT,
             credentials=pika.PlainCredentials(
-                username=os.environ['RABBITMQ_USER'],
-                password=os.environ['RABBITMQ_PASSWORD']
+                username=RABBITMQ_USER,
+                password=RABBITMQ_PASSWORD
             )
         )
     )
     channel = connection.channel()
-    channel.queue_declare(queue='test_queue')
-    channel.basic_consume(queue='test_queue', on_message_callback=callback, auto_ack=True)
-    print("Waiting for messages...")
+    channel.queue_declare(queue=QUEUE_NAME)
+
+    # Set QoS for fair distribution
+    channel.basic_qos(prefetch_count=10)
+
+    channel.basic_consume(queue=QUEUE_NAME, on_message_callback=callback)
+
+    print(f"Consumer {os.getpid()} waiting for messages...")
     channel.start_consuming()

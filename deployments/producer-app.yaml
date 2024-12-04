@@ -75,7 +75,7 @@ data:
     channel.queue_declare(queue='test_queue')
     i=0
     while True:
-        time.sleep(1)
+        # time.sleep(1)
         message = f"Message {i}"
         channel.basic_publish(exchange='', routing_key='test_queue', body=message)
         print(f"Sent: {message}")

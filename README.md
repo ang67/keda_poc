@@ -1,5 +1,5 @@
  # KEDA Poc
-test using RabbitMQ Queue
+This repository demonstrates a Proof of Concept (PoC) for using Kubernetes Event-Driven Autoscaling (KEDA) to scale applications based on RabbitMQ queue size. It includes setup instructions for deploying KEDA, configuring RabbitMQ, and automating scaling of consumer workloads in a Kubernetes cluster. The project aims to showcase how KEDA can trigger automatic scaling based on message queue length in RabbitMQ.
  ## Prerequisites
  - have kubernetes cluser
 
