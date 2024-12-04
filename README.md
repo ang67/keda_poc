@@ -1,8 +1,12 @@
  # KEDA Poc
-
+test using RabbitMQ Queue
  ## Prerequisites
  - have kubernetes cluser
 
+## Create Kind cluster
+```shell
+kind create cluster --name keda-cluster
+```
 
  ## Install Keda using helm
 
@@ -22,3 +26,8 @@ helm repo update
 ```shell
 helm install keda kedacore/keda --namespace keda --create-namespace
 ```
+
+## Install RabbitMQ Queue Scaler
+N/A
+
+## Deploy the app
